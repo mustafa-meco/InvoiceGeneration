@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Generator</title>
+</head>
+<body>
+    <h1>Invoice Generator</h1>
+    <form id="invoiceForm">
+        <label for="client_name">Client Name:</label>
+        <input type="text" id="client_name" name="client_name" required>
+        <br><br>
+        <div id="billingItems">
+            <div class="billingItem">
+                <label for="description">Description:</label>
+                <input type="text" name="description" required>
+                <label for="amount">Amount:</label>
+                <input type="number" name="amount" step="0.01" required>
+                <label for="discount">Discount (%):</label>
+                <input type="number" name="discount" step="0.01" value="0" required>
+                <button type="button" onclick="removeItem(this)">Remove</button>
+            </div>
+        </div>
+        <button type="button" onclick="addItem()">Add Item</button>
+        <br><br>
+        <button type="submit">Generate Invoice</button>
+    </form>
+    <br>
+    <div id="message"></div>
+
+    <script>
+        function addItem() {
+            const billingItems = document.getElementById('billingItems');
+            const newItem = document.createElement('div');
+            newItem.className = 'billingItem';
+            newItem.innerHTML = `
+                <label for="description">Description:</label>
+                <input type="text" name="description" required>
+                <label for="amount">Amount:</label>
+                <input type="number" name="amount" step="0.01" required>
+                <label for="discount">Discount (%):</label>
+                <input type="number" name="discount" step="0.01" value="0" required>
+                <button type="button" onclick="removeItem(this)">Remove</button>
+            `;
+            billingItems.appendChild(newItem);
+        }
+
+        function removeItem(button) {
+            button.parentElement.remove();
+        }
+
+        document.getElementById('invoiceForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const clientName = document.getElementById('client_name').value;
+            const billingItems = Array.from(document.querySelectorAll('.billingItem')).map(item => ({
+                description: item.querySelector('input[name="description"]').value,
+                amount: item.querySelector('input[name="amount"]').value,
+                discount: item.querySelector('input[name="discount"]').value
+            }));
+            const messageDiv = document.getElementById('message');
+
+            fetch('/generate_invoice', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ client_name: clientName, billing_items: billingItems })
+            })
+            .then(response => {
+                if (!response.ok) {
+                    return response.json().then(error => { throw new Error(error.error); });
+                }
+                return response.blob();
+            })
+            .then(blob => {
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `${clientName}_invoice.pdf`;
+                document.body.appendChild(a);
+                a.click();
+                a.remove();
+                window.URL.revokeObjectURL(url);
+                messageDiv.textContent = 'Invoice generated successfully!';
+            })
+            .catch(error => {
+                messageDiv.textContent = `Error: ${error.message}`;
+            });
+        });
+    </script>
+</body>
+</html>
